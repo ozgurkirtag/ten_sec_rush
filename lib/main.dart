@@ -1,0 +1,522 @@
+import 'dart:async';
+import 'dart:math';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() {
+  runApp(const TenSecRushApp());
+}
+
+class TenSecRushApp extends StatelessWidget {
+  const TenSecRushApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: '10 Sec Rush',
+      debugShowCheckedModeBanner: false,
+      home: const HomeScreen(),
+    );
+  }
+}
+
+bool isTr(BuildContext context) =>
+    Localizations.localeOf(context).languageCode == 'tr';
+
+enum TaskType {
+  tap,
+  redSquare,
+  hold,
+  blueCircles,
+  findNumber,
+  dragBox,
+}
+
+class GameTask {
+  final TaskType type;
+  final String en;
+  final String tr;
+  final int target;
+
+  const GameTask(this.type, this.en, this.tr, this.target);
+}
+
+const List<GameTask> taskPool = [
+  GameTask(TaskType.tap, 'Tap 20 times', '20 kez dokun', 20),
+  GameTask(TaskType.tap, 'Tap 30 times', '30 kez dokun', 30),
+  GameTask(TaskType.tap, 'Tap 40 times', '40 kez dokun', 40),
+  GameTask(TaskType.redSquare, 'Tap the red square', 'Kırmızı kareye dokun', 1),
+  GameTask(TaskType.hold, 'Hold for 3 seconds', '3 saniye basılı tut', 3),
+  GameTask(TaskType.blueCircles, 'Tap 5 blue circles', '5 mavi daireye dokun', 5),
+  GameTask(TaskType.findNumber, 'Find number 5', '5 rakamını bul', 1),
+  GameTask(TaskType.dragBox, 'Drag box to target', 'Kutuyu hedefe sürükle', 1),
+];
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int bestScore = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    loadBest();
+  }
+
+  Future<void> loadBest() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      bestScore = prefs.getInt('bestScore') ?? 0;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = isTr(context);
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              '10 SEC RUSH',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 42,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              tr ? 'En İyi Skor: $bestScore' : 'Best Score: $bestScore',
+              style: const TextStyle(color: Colors.white70, fontSize: 22),
+            ),
+            const SizedBox(height: 50),
+            ElevatedButton(
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const GameScreen()),
+                );
+                loadBest();
+              },
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 20),
+              ),
+              child: Text(
+                tr ? 'BAŞLA' : 'START',
+                style: const TextStyle(fontSize: 24),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class GameScreen extends StatefulWidget {
+  const GameScreen({super.key});
+
+  @override
+  State<GameScreen> createState() => _GameScreenState();
+}
+
+class _GameScreenState extends State<GameScreen> {
+  final Random random = Random();
+
+  late GameTask currentTask;
+  Timer? timer;
+  Timer? holdTimer;
+
+  int score = 0;
+  int bestScore = 0;
+  int timeLeft = 10;
+  int progress = 0;
+  bool gameOver = false;
+
+  double redX = 0.4;
+  double redY = 0.4;
+
+  List<Offset> blueCircles = [];
+  List<int> numbers = [];
+
+  Offset boxPosition = const Offset(80, 420);
+  final Offset targetPosition = const Offset(250, 420);
+  bool draggingDone = false;
+
+  @override
+  void initState() {
+    super.initState();
+    loadBest();
+    nextTask();
+  }
+
+  Future<void> loadBest() async {
+    final prefs = await SharedPreferences.getInstance();
+    bestScore = prefs.getInt('bestScore') ?? 0;
+  }
+
+  Future<void> saveBest() async {
+    if (score > bestScore) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('bestScore', score);
+      bestScore = score;
+    }
+  }
+
+  void nextTask() {
+    timer?.cancel();
+    holdTimer?.cancel();
+
+    setState(() {
+      currentTask = taskPool[random.nextInt(taskPool.length)];
+      timeLeft = max(5, 10 - (score ~/ 10));
+      progress = 0;
+      gameOver = false;
+      draggingDone = false;
+      boxPosition = const Offset(80, 420);
+
+      redX = random.nextDouble() * 0.7 + 0.1;
+      redY = random.nextDouble() * 0.5 + 0.25;
+
+      blueCircles = List.generate(
+        5,
+        (_) => Offset(
+          random.nextDouble() * 300 + 30,
+          random.nextDouble() * 400 + 180,
+        ),
+      );
+
+      numbers = List.generate(9, (i) => i + 1)..shuffle();
+    });
+
+    timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || gameOver) return;
+      setState(() => timeLeft--);
+      if (timeLeft <= 0) finishGame();
+    });
+  }
+
+  void successTask() {
+    if (gameOver) return;
+
+    setState(() {
+      score++;
+    });
+
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (mounted && !gameOver) nextTask();
+    });
+  }
+
+  void finishGame() async {
+    timer?.cancel();
+    holdTimer?.cancel();
+
+    await saveBest();
+
+    if (!mounted) return;
+
+    setState(() {
+      gameOver = true;
+    });
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) {
+        final tr = isTr(context);
+        return AlertDialog(
+          backgroundColor: Colors.black,
+          title: Text(
+            tr ? 'KAYBETTİN!' : 'GAME OVER!',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.redAccent, fontSize: 30),
+          ),
+          content: Text(
+            tr
+                ? 'Skor: $score\nEn İyi: $bestScore'
+                : 'Score: $score\nBest: $bestScore',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white, fontSize: 22),
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                setState(() {
+                  score = 0;
+                });
+                nextTask();
+              },
+              child: Text(tr ? 'TEKRAR OYNA' : 'TRY AGAIN'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pop(context);
+              },
+              child: Text(tr ? 'ANA MENÜ' : 'HOME'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void handleTap() {
+    if (gameOver) return;
+
+    if (currentTask.type == TaskType.tap) {
+      setState(() => progress++);
+      if (progress >= currentTask.target) successTask();
+    }
+  }
+
+  @override
+  void dispose() {
+    timer?.cancel();
+    holdTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tr = isTr(context);
+    final title = tr ? currentTask.tr : currentTask.en;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: currentTask.type == TaskType.tap ? handleTap : null,
+        child: SafeArea(
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      tr ? 'Skor: $score' : 'Score: $score',
+                      style: const TextStyle(color: Colors.white70, fontSize: 22),
+                    ),
+                    Text(
+                      '$timeLeft',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 38,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      title.toUpperCase(),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 34,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 25),
+                    if (currentTask.type == TaskType.tap ||
+                        currentTask.type == TaskType.hold ||
+                        currentTask.type == TaskType.blueCircles)
+                      Text(
+                        '$progress / ${currentTask.target}',
+                        style: const TextStyle(color: Colors.white70, fontSize: 28),
+                      ),
+                  ],
+                ),
+              ),
+
+              if (currentTask.type == TaskType.redSquare)
+                Positioned(
+                  left: MediaQuery.of(context).size.width * redX,
+                  top: MediaQuery.of(context).size.height * redY,
+                  child: GestureDetector(
+                    onTap: successTask,
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      color: Colors.red,
+                    ),
+                  ),
+                ),
+
+              if (currentTask.type == TaskType.hold)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 220),
+                    child: GestureDetector(
+                      onLongPressStart: (_) {
+                        holdTimer?.cancel();
+                        progress = 0;
+                        holdTimer = Timer.periodic(
+                          const Duration(seconds: 1),
+                          (_) {
+                            if (!mounted || gameOver) return;
+                            setState(() => progress++);
+                            if (progress >= currentTask.target) {
+                              holdTimer?.cancel();
+                              successTask();
+                            }
+                          },
+                        );
+                      },
+                      onLongPressEnd: (_) {
+                        holdTimer?.cancel();
+                        if (!gameOver && progress < currentTask.target) {
+                          setState(() => progress = 0);
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 50,
+                          vertical: 25,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          tr ? 'BASILI TUT' : 'HOLD',
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+              if (currentTask.type == TaskType.blueCircles)
+                ...blueCircles.map(
+                  (circle) => Positioned(
+                    left: circle.dx,
+                    top: circle.dy,
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          blueCircles.remove(circle);
+                          progress++;
+                        });
+                        if (progress >= currentTask.target) successTask();
+                      },
+                      child: Container(
+                        width: 55,
+                        height: 55,
+                        decoration: const BoxDecoration(
+                          color: Colors.blue,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+              if (currentTask.type == TaskType.findNumber)
+                ...List.generate(numbers.length, (index) {
+                  final number = numbers[index];
+                  return Positioned(
+                    left: 50 + (index % 3) * 110,
+                    top: 220 + (index ~/ 3) * 100,
+                    child: GestureDetector(
+                      onTap: () {
+                        if (number == 5) {
+                          successTask();
+                        } else {
+                          finishGame();
+                        }
+                      },
+                      child: Container(
+                        width: 80,
+                        height: 80,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          '$number',
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 34,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+
+              if (currentTask.type == TaskType.dragBox)
+                Positioned(
+                  left: targetPosition.dx,
+                  top: targetPosition.dy,
+                  child: Container(
+                    width: 90,
+                    height: 90,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.greenAccent, width: 4),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+
+              if (currentTask.type == TaskType.dragBox)
+                Positioned(
+                  left: boxPosition.dx,
+                  top: boxPosition.dy,
+                  child: GestureDetector(
+                    onPanUpdate: (details) {
+                      setState(() {
+                        boxPosition += details.delta;
+                      });
+
+                      final dx = boxPosition.dx - targetPosition.dx;
+                      final dy = boxPosition.dy - targetPosition.dy;
+                      final distance = sqrt(dx * dx + dy * dy);
+
+                      if (distance < 45 && !draggingDone) {
+                        draggingDone = true;
+                        successTask();
+                      }
+                    },
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
