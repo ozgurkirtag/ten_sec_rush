@@ -1,10 +1,79 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  if (!kIsWeb) {
+    await MobileAds.instance.initialize();
+  }
   runApp(const TenSecRushApp());
+}
+
+
+class AdIds {
+  static String get banner => kReleaseMode
+      ? 'ca-app-pub-7094485651472008/6547815794'
+      : 'ca-app-pub-3940256099942544/6300978111';
+
+  static String get interstitial => kReleaseMode
+      ? 'ca-app-pub-7094485651472008/3454748591'
+      : 'ca-app-pub-3940256099942544/1033173712';
+
+  static String get rewarded => kReleaseMode
+      ? 'ca-app-pub-7094485651472008/8392370188'
+      : 'ca-app-pub-3940256099942544/5224354917';
+}
+
+class BannerAdWidget extends StatefulWidget {
+  const BannerAdWidget({super.key});
+
+  @override
+  State<BannerAdWidget> createState() => _BannerAdWidgetState();
+}
+
+class _BannerAdWidgetState extends State<BannerAdWidget> {
+  BannerAd? _bannerAd;
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!kIsWeb) {
+      _bannerAd = BannerAd(
+        adUnitId: AdIds.banner,
+        size: AdSize.banner,
+        request: const AdRequest(),
+        listener: BannerAdListener(
+          onAdLoaded: (_) => setState(() => _loaded = true),
+          onAdFailedToLoad: (ad, error) => ad.dispose(),
+        ),
+      )..load();
+    }
+  }
+
+  @override
+  void dispose() {
+    _bannerAd?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (kIsWeb || !_loaded || _bannerAd == null) {
+      return const SizedBox(height: 0);
+    }
+    return Container(
+      color: Colors.black,
+      alignment: Alignment.center,
+      width: _bannerAd!.size.width.toDouble(),
+      height: _bannerAd!.size.height.toDouble(),
+      child: AdWidget(ad: _bannerAd!),
+    );
+  }
 }
 
 class TenSecRushApp extends StatelessWidget {
@@ -81,6 +150,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       backgroundColor: Colors.black,
+      bottomNavigationBar: const SafeArea(child: BannerAdWidget()),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -152,11 +222,17 @@ class _GameScreenState extends State<GameScreen> {
   final Offset targetPosition = const Offset(250, 420);
   bool draggingDone = false;
 
+  InterstitialAd? _interstitialAd;
+  RewardedAd? _rewardedAd;
+  int _gameOverCount = 0;
+
   @override
   void initState() {
     super.initState();
     loadBest();
     nextTask();
+    _loadInterstitialAd();
+    _loadRewardedAd();
   }
 
   Future<void> loadBest() async {
@@ -229,6 +305,8 @@ class _GameScreenState extends State<GameScreen> {
       gameOver = true;
     });
 
+    _showInterstitialIfReady();
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -262,6 +340,12 @@ class _GameScreenState extends State<GameScreen> {
             ),
             TextButton(
               onPressed: () {
+                _showRewardedContinue();
+              },
+              child: Text(tr ? 'REKLAM İZLE DEVAM ET' : 'WATCH AD CONTINUE'),
+            ),
+            TextButton(
+              onPressed: () {
                 Navigator.pop(context);
                 Navigator.pop(context);
               },
@@ -282,10 +366,83 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
+  void _loadInterstitialAd() {
+    if (kIsWeb) return;
+    InterstitialAd.load(
+      adUnitId: AdIds.interstitial,
+      request: const AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (ad) => _interstitialAd = ad,
+        onAdFailedToLoad: (error) => _interstitialAd = null,
+      ),
+    );
+  }
+
+  void _showInterstitialIfReady() {
+    _gameOverCount++;
+    if (_gameOverCount % 3 != 0) return;
+    final ad = _interstitialAd;
+    if (ad == null) return;
+
+    _interstitialAd = null;
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        _loadInterstitialAd();
+      },
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        ad.dispose();
+        _loadInterstitialAd();
+      },
+    );
+    ad.show();
+  }
+
+  void _loadRewardedAd() {
+    if (kIsWeb) return;
+    RewardedAd.load(
+      adUnitId: AdIds.rewarded,
+      request: const AdRequest(),
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (ad) => _rewardedAd = ad,
+        onAdFailedToLoad: (error) => _rewardedAd = null,
+      ),
+    );
+  }
+
+  void _showRewardedContinue() {
+    final ad = _rewardedAd;
+    if (ad == null) return;
+
+    _rewardedAd = null;
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        _loadRewardedAd();
+      },
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        ad.dispose();
+        _loadRewardedAd();
+      },
+    );
+
+    ad.show(
+      onUserEarnedReward: (ad, reward) {
+        Navigator.pop(context);
+        setState(() {
+          gameOver = false;
+        });
+        nextTask();
+      },
+    );
+  }
+
   @override
   void dispose() {
     timer?.cancel();
     holdTimer?.cancel();
+    _interstitialAd?.dispose();
+    _rewardedAd?.dispose();
     super.dispose();
   }
 
@@ -296,6 +453,7 @@ class _GameScreenState extends State<GameScreen> {
 
     return Scaffold(
       backgroundColor: Colors.black,
+      bottomNavigationBar: const SafeArea(child: BannerAdWidget()),
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: currentTask.type == TaskType.tap ? handleTap : null,
