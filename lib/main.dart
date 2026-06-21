@@ -1,98 +1,17 @@
-import 'dart:async';
-import 'dart:math';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+python3 <<'PY'
+from pathlib import Path
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  if (!kIsWeb) {
-    await MobileAds.instance.initialize();
-  }
-  runApp(const TenSecRushApp());
-}
+p = Path("lib/main.dart")
+s = p.read_text()
 
-
-class AdIds {
-  static String get banner => kReleaseMode
-      ? 'ca-app-pub-7094485651472008/6547815794'
-      : 'ca-app-pub-3940256099942544/6300978111';
-
-  static String get interstitial => kReleaseMode
-      ? 'ca-app-pub-7094485651472008/3454748591'
-      : 'ca-app-pub-3940256099942544/1033173712';
-
-  static String get rewarded => kReleaseMode
-      ? 'ca-app-pub-7094485651472008/8392370188'
-      : 'ca-app-pub-3940256099942544/5224354917';
-}
-
-class BannerAdWidget extends StatefulWidget {
-  const BannerAdWidget({super.key});
-
-  @override
-  State<BannerAdWidget> createState() => _BannerAdWidgetState();
-}
-
-class _BannerAdWidgetState extends State<BannerAdWidget> {
-  BannerAd? _bannerAd;
-  bool _loaded = false;
-
-  @override
-  void initState() {
-    super.initState();
-    if (!kIsWeb) {
-      _bannerAd = BannerAd(
-        adUnitId: AdIds.banner,
-        size: AdSize.banner,
-        request: const AdRequest(),
-        listener: BannerAdListener(
-          onAdLoaded: (_) => setState(() => _loaded = true),
-          onAdFailedToLoad: (ad, error) => ad.dispose(),
-        ),
-      )..load();
-    }
-  }
-
-  @override
-  void dispose() {
-    _bannerAd?.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (kIsWeb || !_loaded || _bannerAd == null) {
-      return const SizedBox(height: 0);
-    }
-    return Container(
-      color: Colors.black,
-      alignment: Alignment.center,
-      width: _bannerAd!.size.width.toDouble(),
-      height: _bannerAd!.size.height.toDouble(),
-      child: AdWidget(ad: _bannerAd!),
-    );
-  }
-}
-
-class TenSecRushApp extends StatelessWidget {
-  const TenSecRushApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: '10 Sec Rush',
-      debugShowCheckedModeBanner: false,
-      home: const HomeScreen(),
-    );
-  }
-}
-
-bool isTr(BuildContext context) =>
-    Localizations.localeOf(context).languageCode == 'tr';
-
-enum TaskType {
+s = s.replace("""enum TaskType {
+  tap,
+  redSquare,
+  hold,
+  blueCircles,
+  findNumber,
+  dragBox,
+}""", """enum TaskType {
   tap,
   redSquare,
   hold,
@@ -101,580 +20,91 @@ enum TaskType {
   dragBox,
 }
 
-class GameTask {
+enum Difficulty {
+  easy,
+  normal,
+  hard,
+}""")
+
+start = s.index("class GameTask {")
+end = s.index("class HomeScreen", start)
+
+new_block = r'''class GameTask {
   final TaskType type;
+  final Difficulty difficulty;
   final String en;
   final String tr;
   final int target;
+  final int seconds;
 
-  const GameTask(this.type, this.en, this.tr, this.target);
+  const GameTask(
+    this.type,
+    this.difficulty,
+    this.en,
+    this.tr,
+    this.target,
+    this.seconds,
+  );
 }
 
 const List<GameTask> taskPool = [
-  GameTask(TaskType.tap, 'Tap 20 times', '20 kez dokun', 20),
-  GameTask(TaskType.tap, 'Tap 30 times', '30 kez dokun', 30),
-  GameTask(TaskType.tap, 'Tap 40 times', '40 kez dokun', 40),
-  GameTask(TaskType.redSquare, 'Tap the red square', 'Kırmızı kareye dokun', 1),
-  GameTask(TaskType.hold, 'Hold for 3 seconds', '3 saniye basılı tut', 3),
-  GameTask(TaskType.blueCircles, 'Tap 5 blue circles', '5 mavi daireye dokun', 5),
-  GameTask(TaskType.findNumber, 'Find number 5', '5 rakamını bul', 1),
-  GameTask(TaskType.dragBox, 'Drag box to target', 'Kutuyu hedefe sürükle', 1),
+  // EASY - 10 seconds
+  GameTask(TaskType.tap, Difficulty.easy, 'Tap 10 times', '10 kez dokun', 10, 10),
+  GameTask(TaskType.tap, Difficulty.easy, 'Tap 15 times', '15 kez dokun', 15, 10),
+  GameTask(TaskType.tap, Difficulty.easy, 'Tap 20 times', '20 kez dokun', 20, 10),
+  GameTask(TaskType.redSquare, Difficulty.easy, 'Tap the red square', 'Kırmızı kareye dokun', 1, 10),
+  GameTask(TaskType.hold, Difficulty.easy, 'Hold for 2 seconds', '2 saniye basılı tut', 2, 10),
+  GameTask(TaskType.blueCircles, Difficulty.easy, 'Tap 3 blue circles', '3 mavi daireye dokun', 3, 10),
+  GameTask(TaskType.findNumber, Difficulty.easy, 'Find number 5', '5 rakamını bul', 1, 10),
+  GameTask(TaskType.dragBox, Difficulty.easy, 'Drag box to target', 'Kutuyu hedefe sürükle', 1, 10),
+  GameTask(TaskType.tap, Difficulty.easy, 'Tap 25 times', '25 kez dokun', 25, 10),
+  GameTask(TaskType.hold, Difficulty.easy, 'Hold for 3 seconds', '3 saniye basılı tut', 3, 10),
+
+  // NORMAL - 8 seconds
+  GameTask(TaskType.tap, Difficulty.normal, 'Tap 30 times', '30 kez dokun', 30, 8),
+  GameTask(TaskType.tap, Difficulty.normal, 'Tap 35 times', '35 kez dokun', 35, 8),
+  GameTask(TaskType.tap, Difficulty.normal, 'Tap 40 times', '40 kez dokun', 40, 8),
+  GameTask(TaskType.redSquare, Difficulty.normal, 'Catch the red square', 'Kırmızı kareyi yakala', 1, 8),
+  GameTask(TaskType.hold, Difficulty.normal, 'Hold for 4 seconds', '4 saniye basılı tut', 4, 8),
+  GameTask(TaskType.blueCircles, Difficulty.normal, 'Tap 5 blue circles', '5 mavi daireye dokun', 5, 8),
+  GameTask(TaskType.findNumber, Difficulty.normal, 'Find number 5 fast', '5 rakamını hızlı bul', 1, 8),
+  GameTask(TaskType.dragBox, Difficulty.normal, 'Drag fast', 'Hızlı sürükle', 1, 8),
+
+  // HARD - 6 seconds
+  GameTask(TaskType.tap, Difficulty.hard, 'Tap 45 times', '45 kez dokun', 45, 6),
+  GameTask(TaskType.tap, Difficulty.hard, 'Tap 50 times', '50 kez dokun', 50, 6),
+  GameTask(TaskType.tap, Difficulty.hard, 'Tap 55 times', '55 kez dokun', 55, 6),
+  GameTask(TaskType.redSquare, Difficulty.hard, 'Hit the red square', 'Kırmızı kareye vur', 1, 6),
+  GameTask(TaskType.hold, Difficulty.hard, 'Hold for 5 seconds', '5 saniye basılı tut', 5, 6),
+  GameTask(TaskType.blueCircles, Difficulty.hard, 'Tap 6 blue circles', '6 mavi daireye dokun', 6, 6),
+  GameTask(TaskType.findNumber, Difficulty.hard, 'Find 5 under pressure', 'Baskı altında 5’i bul', 1, 6),
+  GameTask(TaskType.dragBox, Difficulty.hard, 'Drag before time ends', 'Süre bitmeden sürükle', 1, 6),
 ];
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+'''
+s = s[:start] + new_block + s[end:]
 
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
+s = s.replace(
+"currentTask = taskPool[random.nextInt(taskPool.length)];\n      timeLeft = max(5, 10 - (score ~/ 10));",
+"""final difficulty = score < 10
+          ? Difficulty.easy
+          : score < 18
+              ? Difficulty.normal
+              : Difficulty.hard;
 
-class _HomeScreenState extends State<HomeScreen> {
-  int bestScore = 0;
+      final availableTasks =
+          taskPool.where((task) => task.difficulty == difficulty).toList();
 
-  @override
-  void initState() {
-    super.initState();
-    loadBest();
-  }
+      currentTask = availableTasks[random.nextInt(availableTasks.length)];
+      timeLeft = currentTask.seconds;"""
+)
 
-  Future<void> loadBest() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      bestScore = prefs.getInt('bestScore') ?? 0;
-    });
-  }
+s = s.replace(
+"tr ? 'Skor: $score' : 'Score: $score',",
+"tr ? 'Skor: $score | Süre: ${currentTask.seconds} sn' : 'Score: $score | ${currentTask.seconds} sec',"
+)
 
-  @override
-  Widget build(BuildContext context) {
-    final tr = isTr(context);
+p.write_text(s)
+PY
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      bottomNavigationBar: const SafeArea(child: BannerAdWidget()),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              '10 SEC RUSH',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 42,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              tr ? 'En İyi Skor: $bestScore' : 'Best Score: $bestScore',
-              style: const TextStyle(color: Colors.white70, fontSize: 22),
-            ),
-            const SizedBox(height: 50),
-            ElevatedButton(
-              onPressed: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const GameScreen()),
-                );
-                loadBest();
-              },
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 20),
-              ),
-              child: Text(
-                tr ? 'BAŞLA' : 'START',
-                style: const TextStyle(fontSize: 24),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class GameScreen extends StatefulWidget {
-  const GameScreen({super.key});
-
-  @override
-  State<GameScreen> createState() => _GameScreenState();
-}
-
-class _GameScreenState extends State<GameScreen> {
-  final Random random = Random();
-
-  late GameTask currentTask;
-  Timer? timer;
-  Timer? holdTimer;
-
-  int score = 0;
-  int bestScore = 0;
-  int timeLeft = 10;
-  int progress = 0;
-  bool gameOver = false;
-
-  double redX = 0.4;
-  double redY = 0.4;
-
-  List<Offset> blueCircles = [];
-  List<int> numbers = [];
-
-  Offset boxPosition = const Offset(80, 420);
-  final Offset targetPosition = const Offset(250, 420);
-  bool draggingDone = false;
-
-  InterstitialAd? _interstitialAd;
-  RewardedAd? _rewardedAd;
-  int _gameOverCount = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    loadBest();
-    nextTask();
-    _loadInterstitialAd();
-    _loadRewardedAd();
-  }
-
-  Future<void> loadBest() async {
-    final prefs = await SharedPreferences.getInstance();
-    bestScore = prefs.getInt('bestScore') ?? 0;
-  }
-
-  Future<void> saveBest() async {
-    if (score > bestScore) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('bestScore', score);
-      bestScore = score;
-    }
-  }
-
-  void nextTask() {
-    timer?.cancel();
-    holdTimer?.cancel();
-
-    setState(() {
-      currentTask = taskPool[random.nextInt(taskPool.length)];
-      timeLeft = max(5, 10 - (score ~/ 10));
-      progress = 0;
-      gameOver = false;
-      draggingDone = false;
-      boxPosition = const Offset(80, 420);
-
-      redX = random.nextDouble() * 0.7 + 0.1;
-      redY = random.nextDouble() * 0.5 + 0.25;
-
-      blueCircles = List.generate(
-        5,
-        (_) => Offset(
-          random.nextDouble() * 300 + 30,
-          random.nextDouble() * 400 + 180,
-        ),
-      );
-
-      numbers = List.generate(9, (i) => i + 1)..shuffle();
-    });
-
-    timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted || gameOver) return;
-      setState(() => timeLeft--);
-      if (timeLeft <= 0) finishGame();
-    });
-  }
-
-  void successTask() {
-    if (gameOver) return;
-
-    setState(() {
-      score++;
-    });
-
-    Future.delayed(const Duration(milliseconds: 350), () {
-      if (mounted && !gameOver) nextTask();
-    });
-  }
-
-  void finishGame() async {
-    timer?.cancel();
-    holdTimer?.cancel();
-
-    await saveBest();
-
-    if (!mounted) return;
-
-    setState(() {
-      gameOver = true;
-    });
-
-    _showInterstitialIfReady();
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) {
-        final tr = isTr(context);
-        return AlertDialog(
-          backgroundColor: Colors.black,
-          title: Text(
-            tr ? 'KAYBETTİN!' : 'GAME OVER!',
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.redAccent, fontSize: 30),
-          ),
-          content: Text(
-            tr
-                ? 'Skor: $score\nEn İyi: $bestScore'
-                : 'Score: $score\nBest: $bestScore',
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white, fontSize: 22),
-          ),
-          actionsAlignment: MainAxisAlignment.center,
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                setState(() {
-                  score = 0;
-                });
-                nextTask();
-              },
-              child: Text(tr ? 'TEKRAR OYNA' : 'TRY AGAIN'),
-            ),
-            TextButton(
-              onPressed: () {
-                _showRewardedContinue();
-              },
-              child: Text(tr ? 'REKLAM İZLE DEVAM ET' : 'WATCH AD CONTINUE'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.pop(context);
-              },
-              child: Text(tr ? 'ANA MENÜ' : 'HOME'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void handleTap() {
-    if (gameOver) return;
-
-    if (currentTask.type == TaskType.tap) {
-      setState(() => progress++);
-      if (progress >= currentTask.target) successTask();
-    }
-  }
-
-  void _loadInterstitialAd() {
-    if (kIsWeb) return;
-    InterstitialAd.load(
-      adUnitId: AdIds.interstitial,
-      request: const AdRequest(),
-      adLoadCallback: InterstitialAdLoadCallback(
-        onAdLoaded: (ad) => _interstitialAd = ad,
-        onAdFailedToLoad: (error) => _interstitialAd = null,
-      ),
-    );
-  }
-
-  void _showInterstitialIfReady() {
-    _gameOverCount++;
-    if (_gameOverCount % 3 != 0) return;
-    final ad = _interstitialAd;
-    if (ad == null) return;
-
-    _interstitialAd = null;
-    ad.fullScreenContentCallback = FullScreenContentCallback(
-      onAdDismissedFullScreenContent: (ad) {
-        ad.dispose();
-        _loadInterstitialAd();
-      },
-      onAdFailedToShowFullScreenContent: (ad, error) {
-        ad.dispose();
-        _loadInterstitialAd();
-      },
-    );
-    ad.show();
-  }
-
-  void _loadRewardedAd() {
-    if (kIsWeb) return;
-    RewardedAd.load(
-      adUnitId: AdIds.rewarded,
-      request: const AdRequest(),
-      rewardedAdLoadCallback: RewardedAdLoadCallback(
-        onAdLoaded: (ad) => _rewardedAd = ad,
-        onAdFailedToLoad: (error) => _rewardedAd = null,
-      ),
-    );
-  }
-
-  void _showRewardedContinue() {
-    final ad = _rewardedAd;
-    if (ad == null) return;
-
-    _rewardedAd = null;
-    ad.fullScreenContentCallback = FullScreenContentCallback(
-      onAdDismissedFullScreenContent: (ad) {
-        ad.dispose();
-        _loadRewardedAd();
-      },
-      onAdFailedToShowFullScreenContent: (ad, error) {
-        ad.dispose();
-        _loadRewardedAd();
-      },
-    );
-
-    ad.show(
-      onUserEarnedReward: (ad, reward) {
-        Navigator.pop(context);
-        setState(() {
-          gameOver = false;
-        });
-        nextTask();
-      },
-    );
-  }
-
-  @override
-  void dispose() {
-    timer?.cancel();
-    holdTimer?.cancel();
-    _interstitialAd?.dispose();
-    _rewardedAd?.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final tr = isTr(context);
-    final title = tr ? currentTask.tr : currentTask.en;
-
-    return Scaffold(
-      backgroundColor: Colors.black,
-      bottomNavigationBar: const SafeArea(child: BannerAdWidget()),
-      body: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: currentTask.type == TaskType.tap ? handleTap : null,
-        child: SafeArea(
-          child: Stack(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      tr ? 'Skor: $score' : 'Score: $score',
-                      style: const TextStyle(color: Colors.white70, fontSize: 22),
-                    ),
-                    Text(
-                      '$timeLeft',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 38,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      title.toUpperCase(),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 34,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 25),
-                    if (currentTask.type == TaskType.tap ||
-                        currentTask.type == TaskType.hold ||
-                        currentTask.type == TaskType.blueCircles)
-                      Text(
-                        '$progress / ${currentTask.target}',
-                        style: const TextStyle(color: Colors.white70, fontSize: 28),
-                      ),
-                  ],
-                ),
-              ),
-
-              if (currentTask.type == TaskType.redSquare)
-                Positioned(
-                  left: MediaQuery.of(context).size.width * redX,
-                  top: MediaQuery.of(context).size.height * redY,
-                  child: GestureDetector(
-                    onTap: successTask,
-                    child: Container(
-                      width: 80,
-                      height: 80,
-                      color: Colors.red,
-                    ),
-                  ),
-                ),
-
-              if (currentTask.type == TaskType.hold)
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 220),
-                    child: GestureDetector(
-                      onLongPressStart: (_) {
-                        holdTimer?.cancel();
-                        progress = 0;
-                        holdTimer = Timer.periodic(
-                          const Duration(seconds: 1),
-                          (_) {
-                            if (!mounted || gameOver) return;
-                            setState(() => progress++);
-                            if (progress >= currentTask.target) {
-                              holdTimer?.cancel();
-                              successTask();
-                            }
-                          },
-                        );
-                      },
-                      onLongPressEnd: (_) {
-                        holdTimer?.cancel();
-                        if (!gameOver && progress < currentTask.target) {
-                          setState(() => progress = 0);
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 50,
-                          vertical: 25,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          tr ? 'BASILI TUT' : 'HOLD',
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-              if (currentTask.type == TaskType.blueCircles)
-                ...blueCircles.map(
-                  (circle) => Positioned(
-                    left: circle.dx,
-                    top: circle.dy,
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          blueCircles.remove(circle);
-                          progress++;
-                        });
-                        if (progress >= currentTask.target) successTask();
-                      },
-                      child: Container(
-                        width: 55,
-                        height: 55,
-                        decoration: const BoxDecoration(
-                          color: Colors.blue,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-              if (currentTask.type == TaskType.findNumber)
-                ...List.generate(numbers.length, (index) {
-                  final number = numbers[index];
-                  return Positioned(
-                    left: 50 + (index % 3) * 110,
-                    top: 220 + (index ~/ 3) * 100,
-                    child: GestureDetector(
-                      onTap: () {
-                        if (number == 5) {
-                          successTask();
-                        } else {
-                          finishGame();
-                        }
-                      },
-                      child: Container(
-                        width: 80,
-                        height: 80,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Text(
-                          '$number',
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 34,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-
-              if (currentTask.type == TaskType.dragBox)
-                Positioned(
-                  left: targetPosition.dx,
-                  top: targetPosition.dy,
-                  child: Container(
-                    width: 90,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.greenAccent, width: 4),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-
-              if (currentTask.type == TaskType.dragBox)
-                Positioned(
-                  left: boxPosition.dx,
-                  top: boxPosition.dy,
-                  child: GestureDetector(
-                    onPanUpdate: (details) {
-                      setState(() {
-                        boxPosition += details.delta;
-                      });
-
-                      final dx = boxPosition.dx - targetPosition.dx;
-                      final dy = boxPosition.dy - targetPosition.dy;
-                      final distance = sqrt(dx * dx + dy * dy);
-
-                      if (distance < 45 && !draggingDone) {
-                        draggingDone = true;
-                        successTask();
-                      }
-                    },
-                    child: Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: Colors.orange,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
+flutter analyze
