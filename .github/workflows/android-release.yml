@@ -20,7 +20,17 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-              channel: 'stable'
+          channel: 'stable'
+
+      - name: Restore Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > ten_sec_rush_upload.jks
+          cat > android/key.properties <<PROPS
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=../../ten_sec_rush_upload.jks
+          PROPS
 
       - name: Install Dependencies
         run: flutter pub get
