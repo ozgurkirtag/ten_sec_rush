@@ -110,49 +110,16 @@ class GameTask {
   const GameTask(this.type, this.en, this.tr, this.target);
 }
 
-const List<GameTask> easyTasks = [
-  GameTask(TaskType.tap, 'Tap 15 times', '15 kez dokun', 15),
+const List<GameTask> taskPool = [
   GameTask(TaskType.tap, 'Tap 20 times', '20 kez dokun', 20),
+  GameTask(TaskType.tap, 'Tap 30 times', '30 kez dokun', 30),
+  GameTask(TaskType.tap, 'Tap 40 times', '40 kez dokun', 40),
   GameTask(TaskType.redSquare, 'Tap the red square', 'Kırmızı kareye dokun', 1),
-  GameTask(TaskType.blueCircles, 'Tap 2 blue circles', '2 mavi daireye dokun', 2),
   GameTask(TaskType.hold, 'Hold for 3 seconds', '3 saniye basılı tut', 3),
-  GameTask(TaskType.findNumber, 'Find number 5', '5 rakamını bul', 5),
+  GameTask(TaskType.blueCircles, 'Tap 5 blue circles', '5 mavi daireye dokun', 5),
+  GameTask(TaskType.findNumber, 'Find number 5', '5 rakamını bul', 1),
   GameTask(TaskType.dragBox, 'Drag box to target', 'Kutuyu hedefe sürükle', 1),
 ];
-
-const List<GameTask> normalTasks = [
-  GameTask(TaskType.tap, 'Tap 25 times', '25 kez dokun', 25),
-  GameTask(TaskType.tap, 'Tap 30 times', '30 kez dokun', 30),
-  GameTask(TaskType.blueCircles, 'Tap 3 blue circles', '3 mavi daireye dokun', 3),
-  GameTask(TaskType.blueCircles, 'Tap 4 blue circles', '4 mavi daireye dokun', 4),
-  GameTask(TaskType.hold, 'Hold for 4 seconds', '4 saniye basılı tut', 4),
-  GameTask(TaskType.findNumber, 'Find number 7', '7 rakamını bul', 7),
-  GameTask(TaskType.redSquare, 'Tap the red square fast', 'Kırmızı kareye hızlı dokun', 1),
-];
-
-const List<GameTask> hardTasks = [
-  GameTask(TaskType.tap, 'Tap 35 times', '35 kez dokun', 35),
-  GameTask(TaskType.tap, 'Tap 40 times', '40 kez dokun', 40),
-  GameTask(TaskType.blueCircles, 'Tap 5 blue circles', '5 mavi daireye dokun', 5),
-  GameTask(TaskType.hold, 'Hold for 4 seconds', '4 saniye basılı tut', 4),
-  GameTask(TaskType.findNumber, 'Find number 9', '9 rakamını bul', 9),
-  GameTask(TaskType.redSquare, 'Tiny red square', 'Küçük kırmızı kare', 1),
-];
-
-
-String leagueName(int points, bool tr) {
-  if (points >= 5000) return tr ? 'Efsane' : 'Legend';
-  if (points >= 2500) return tr ? 'Elmas' : 'Diamond';
-  if (points >= 1000) return tr ? 'Altın' : 'Gold';
-  if (points >= 400) return tr ? 'Gümüş' : 'Silver';
-  if (points >= 100) return tr ? 'Bronz' : 'Bronze';
-  return tr ? 'Çaylak' : 'Rookie';
-}
-
-int fakeRank(int points) {
-  final rank = 1000 - (points ~/ 5);
-  return rank < 1 ? 1 : rank;
-}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -163,7 +130,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int bestScore = 0;
-  int totalScore = 0;
 
   @override
   void initState() {
@@ -175,7 +141,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       bestScore = prefs.getInt('bestScore') ?? 0;
-      totalScore = prefs.getInt('totalScore') ?? 0;
     });
   }
 
@@ -202,21 +167,6 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(
               tr ? 'En İyi Skor: $bestScore' : 'Best Score: $bestScore',
               style: const TextStyle(color: Colors.white70, fontSize: 22),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              tr ? 'Toplam Puan: $totalScore' : 'Total Points: $totalScore',
-              style: const TextStyle(color: Colors.white70, fontSize: 20),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              tr ? 'Lig: ${leagueName(totalScore, true)}' : 'League: ${leagueName(totalScore, false)}',
-              style: const TextStyle(color: Colors.amber, fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              tr ? 'Sıralama: #${fakeRank(totalScore)}' : 'Rank: #${fakeRank(totalScore)}',
-              style: const TextStyle(color: Colors.white54, fontSize: 18),
             ),
             const SizedBox(height: 50),
             ElevatedButton(
@@ -255,11 +205,9 @@ class _GameScreenState extends State<GameScreen> {
   late GameTask currentTask;
   Timer? timer;
   Timer? holdTimer;
-  Timer? numberShuffleTimer;
 
   int score = 0;
   int bestScore = 0;
-  int totalScore = 0;
   int timeLeft = 10;
   int progress = 0;
   bool gameOver = false;
@@ -290,12 +238,6 @@ class _GameScreenState extends State<GameScreen> {
   Future<void> loadBest() async {
     final prefs = await SharedPreferences.getInstance();
     bestScore = prefs.getInt('bestScore') ?? 0;
-      totalScore = prefs.getInt('totalScore') ?? 0;
-  }
-
-  Future<void> saveTotalScore() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('totalScore', totalScore);
   }
 
   Future<void> saveBest() async {
@@ -309,18 +251,10 @@ class _GameScreenState extends State<GameScreen> {
   void nextTask() {
     timer?.cancel();
     holdTimer?.cancel();
-    numberShuffleTimer?.cancel();
 
     setState(() {
-      final pool = score >= 25 ? hardTasks : (score >= 10 ? normalTasks : easyTasks);
-      currentTask = pool[random.nextInt(pool.length)];
-      if (score >= 25) {
-      timeLeft = 6;
-    } else if (score >= 10) {
-      timeLeft = 8;
-    } else {
-      timeLeft = 10;
-    }
+      currentTask = taskPool[random.nextInt(taskPool.length)];
+      timeLeft = max(5, 10 - (score ~/ 10));
       progress = 0;
       gameOver = false;
       draggingDone = false;
@@ -337,18 +271,8 @@ class _GameScreenState extends State<GameScreen> {
         ),
       );
 
-      numbers = List.generate(9, (i) => i + 1)..shuffle(random);
+      numbers = List.generate(9, (i) => i + 1)..shuffle();
     });
-
-    if (currentTask.type == TaskType.findNumber) {
-      numberShuffleTimer?.cancel();
-      numberShuffleTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-        if (!mounted || gameOver || currentTask.type != TaskType.findNumber) return;
-        setState(() {
-          numbers = List.generate(9, (i) => i + 1)..shuffle(random);
-        });
-      });
-    }
 
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted || gameOver) return;
@@ -358,14 +282,11 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void successTask() {
-    numberShuffleTimer?.cancel();
     if (gameOver) return;
 
     setState(() {
       score++;
-      totalScore++;
     });
-    saveTotalScore();
 
     Future.delayed(const Duration(milliseconds: 350), () {
       if (mounted && !gameOver) nextTask();
@@ -400,8 +321,8 @@ class _GameScreenState extends State<GameScreen> {
           ),
           content: Text(
             tr
-                ? 'Skor: $score\nEn İyi: $bestScore\nToplam: $totalScore\nLig: ${leagueName(totalScore, true)}\nSıralama: #${fakeRank(totalScore)}'
-                : 'Score: $score\nBest: $bestScore\nTotal: $totalScore\nLeague: ${leagueName(totalScore, false)}\nRank: #${fakeRank(totalScore)}',
+                ? 'Skor: $score\nEn İyi: $bestScore'
+                : 'Score: $score\nBest: $bestScore',
             textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.white, fontSize: 22),
           ),
@@ -525,24 +446,7 @@ class _GameScreenState extends State<GameScreen> {
     super.dispose();
   }
 
-  
-  void shuffleNumbers() {
-    numbers = List.generate(9, (index) => index + 1)..shuffle(random);
-  }
-
-  void startNumberShuffleTimer() {
-    numberShuffleTimer?.cancel();
-    if (currentTask.type != TaskType.findNumber) return;
-
-    numberShuffleTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      if (!mounted || gameOver || currentTask.type != TaskType.findNumber) return;
-      setState(() {
-        numbers = List.generate(9, (index) => index + 1)..shuffle(random);
-      });
-    });
-  }
-
-@override
+  @override
   Widget build(BuildContext context) {
     final tr = isTr(context);
     final title = tr ? currentTask.tr : currentTask.en;
@@ -595,9 +499,7 @@ class _GameScreenState extends State<GameScreen> {
                         currentTask.type == TaskType.hold ||
                         currentTask.type == TaskType.blueCircles)
                       Text(
-                        currentTask.type == TaskType.hold
-                            ? '${(progress / 2).floor()} / ${currentTask.target}'
-                            : '$progress / ${currentTask.target}',
+                        '$progress / ${currentTask.target}',
                         style: const TextStyle(color: Colors.white70, fontSize: 28),
                       ),
                   ],
@@ -623,30 +525,24 @@ class _GameScreenState extends State<GameScreen> {
                   child: Padding(
                     padding: const EdgeInsets.only(top: 220),
                     child: GestureDetector(
-                      onTapDown: (_) {
+                      onLongPressStart: (_) {
                         holdTimer?.cancel();
-                        setState(() => progress = 0);
+                        progress = 0;
                         holdTimer = Timer.periodic(
-                          const Duration(milliseconds: 500),
+                          const Duration(seconds: 1),
                           (_) {
                             if (!mounted || gameOver) return;
                             setState(() => progress++);
-                            if (progress >= currentTask.target * 2) {
+                            if (progress >= currentTask.target) {
                               holdTimer?.cancel();
                               successTask();
                             }
                           },
                         );
                       },
-                      onTapUp: (_) {
+                      onLongPressEnd: (_) {
                         holdTimer?.cancel();
-                        if (!gameOver && progress < currentTask.target * 2) {
-                          setState(() => progress = 0);
-                        }
-                      },
-                      onTapCancel: () {
-                        holdTimer?.cancel();
-                        if (!gameOver && progress < currentTask.target * 2) {
+                        if (!gameOver && progress < currentTask.target) {
                           setState(() => progress = 0);
                         }
                       },
@@ -673,7 +569,7 @@ class _GameScreenState extends State<GameScreen> {
                 ),
 
               if (currentTask.type == TaskType.blueCircles)
-                ...blueCircles.toList().map(
+                ...blueCircles.map(
                   (circle) => Positioned(
                     left: circle.dx,
                     top: circle.dy,
@@ -682,14 +578,6 @@ class _GameScreenState extends State<GameScreen> {
                         setState(() {
                           blueCircles.remove(circle);
                           progress++;
-
-                          final size = MediaQuery.of(context).size;
-                          blueCircles = blueCircles
-                              .map((_) => Offset(
-                                    40 + random.nextDouble() * (size.width - 100),
-                                    120 + random.nextDouble() * (size.height - 260),
-                                  ))
-                              .toList();
                         });
                         if (progress >= currentTask.target) successTask();
                       },
@@ -713,7 +601,7 @@ class _GameScreenState extends State<GameScreen> {
                     top: 220 + (index ~/ 3) * 100,
                     child: GestureDetector(
                       onTap: () {
-                        if (number == currentTask.target) {
+                        if (number == 5) {
                           successTask();
                         } else {
                           finishGame();
