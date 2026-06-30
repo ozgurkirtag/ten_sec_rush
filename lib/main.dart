@@ -90,7 +90,7 @@ class TenSecRushApp extends StatelessWidget {
 }
 
 bool isTr(BuildContext context) =>
-    Localizations.localeOf(context).languageCode == 'tr';
+    WidgetsBinding.instance.platformDispatcher.locale.languageCode == 'tr';
 
 enum TaskType {
   tap,
@@ -440,7 +440,11 @@ class _GameScreenState extends State<GameScreen> {
     if (gameOver) return;
 
     if (currentTask.type == TaskType.tap) {
-      setState(() => progress++);
+      if (progress >= currentTask.target) return;
+      setState(() {
+        progress++;
+        if (progress > currentTask.target) progress = currentTask.target;
+      });
       if (progress >= currentTask.target) successTask();
     }
   }
@@ -569,7 +573,7 @@ class _GameScreenState extends State<GameScreen> {
                       '$timeLeft',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 38,
+                        fontSize: 36,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -577,16 +581,19 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ),
 
-              Center(
+              Positioned(
+                top: 82,
+                left: 18,
+                right: 18,
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       title.toUpperCase(),
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 34,
+                        fontSize: 22,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -659,13 +666,27 @@ class _GameScreenState extends State<GameScreen> {
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Text(
-                          tr ? 'BASILI TUT' : 'HOLD',
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              tr ? 'BASILI TUT' : 'HOLD',
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '${(progress / 2).floor()} / ${currentTask.target}',
+                              style: const TextStyle(
+                                color: Colors.black87,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -709,8 +730,8 @@ class _GameScreenState extends State<GameScreen> {
                 ...List.generate(numbers.length, (index) {
                   final number = numbers[index];
                   return Positioned(
-                    left: 50 + (index % 3) * 110,
-                    top: 220 + (index ~/ 3) * 100,
+                    left: 54 + (index % 3) * 96,
+                    top: 235 + (index ~/ 3) * 82,
                     child: GestureDetector(
                       onTap: () {
                         if (number == currentTask.target) {
@@ -720,8 +741,8 @@ class _GameScreenState extends State<GameScreen> {
                         }
                       },
                       child: Container(
-                        width: 80,
-                        height: 80,
+                        width: 64,
+                        height: 64,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: Colors.white,
@@ -731,7 +752,7 @@ class _GameScreenState extends State<GameScreen> {
                           '$number',
                           style: const TextStyle(
                             color: Colors.black,
-                            fontSize: 34,
+                            fontSize: 22,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
