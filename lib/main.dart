@@ -546,7 +546,216 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
-@override
+
+  Widget _gameArea(BuildContext context, bool tr, String title) {
+    return Container(
+      width: 330,
+      height: 330,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.white24, width: 2),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: _taskWidget(context, tr, title),
+    );
+  }
+
+  Widget _taskWidget(BuildContext context, bool tr, String title) {
+    switch (currentTask.type) {
+      case TaskType.tap:
+        return GestureDetector(
+          onTap: handleTap,
+          child: Container(
+            width: 190,
+            height: 190,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: Colors.greenAccent, width: 4),
+            ),
+            child: Text(
+              tr ? 'DOKUN' : 'TAP',
+              style: const TextStyle(color: Colors.black, fontSize: 34, fontWeight: FontWeight.bold),
+            ),
+          ),
+        );
+
+      case TaskType.redSquare:
+        final tiny = title.toLowerCase().contains('küçük') || title.toLowerCase().contains('tiny');
+        return GestureDetector(
+          onTap: successTask,
+          child: Container(
+            width: tiny ? 55 : 90,
+            height: tiny ? 55 : 90,
+            color: Colors.red,
+          ),
+        );
+
+      case TaskType.hold:
+        return GestureDetector(
+          onTapDown: (_) {
+            holdTimer?.cancel();
+            setState(() => progress = 0);
+            holdTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+              if (!mounted || gameOver) return;
+              setState(() => progress++);
+              if (progress >= currentTask.target * 2) {
+                holdTimer?.cancel();
+                successTask();
+              }
+            });
+          },
+          onTapUp: (_) {
+            holdTimer?.cancel();
+            if (!gameOver && progress < currentTask.target * 2) {
+              setState(() => progress = 0);
+            }
+          },
+          onTapCancel: () {
+            holdTimer?.cancel();
+            if (!gameOver && progress < currentTask.target * 2) {
+              setState(() => progress = 0);
+            }
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 25),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  tr ? 'BASILI TUT' : 'HOLD',
+                  style: const TextStyle(color: Colors.black, fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${(progress / 2).floor()} / ${currentTask.target}',
+                  style: const TextStyle(color: Colors.black87, fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+        );
+
+      case TaskType.blueCircles:
+        return Wrap(
+          spacing: 22,
+          runSpacing: 22,
+          alignment: WrapAlignment.center,
+          children: List.generate(currentTask.target, (index) {
+            return GestureDetector(
+              onTap: () {
+                setState(() => progress++);
+                if (progress >= currentTask.target) successTask();
+              },
+              child: Container(
+                width: 62,
+                height: 62,
+                decoration: const BoxDecoration(
+                  color: Colors.blue,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            );
+          }),
+        );
+
+      case TaskType.findNumber:
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          alignment: WrapAlignment.center,
+          children: List.generate(numbers.length, (index) {
+            final number = numbers[index];
+            return GestureDetector(
+              onTap: () {
+                if (number == currentTask.target) {
+                  successTask();
+                } else {
+                  finishGame();
+                }
+              },
+              child: Container(
+                width: 64,
+                height: 64,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  '$number',
+                  style: const TextStyle(color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+              ),
+            );
+          }),
+        );
+
+      case TaskType.dragBox:
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            Draggable<int>(
+              data: 1,
+              feedback: Material(
+                color: Colors.transparent,
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.orange,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              childWhenDragging: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: Colors.orange,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            DragTarget<int>(
+              onAcceptWithDetails: (_) {
+                if (!draggingDone) {
+                  draggingDone = true;
+                  successTask();
+                }
+              },
+              builder: (context, candidateData, rejectedData) {
+                return Container(
+                  width: 100,
+                  height: 100,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.greenAccent, width: 4),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.flag, color: Colors.greenAccent, size: 34),
+                );
+              },
+            ),
+          ],
+        );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final tr = isTr(context);
     final title = tr ? currentTask.tr : currentTask.en;
@@ -558,278 +767,48 @@ class _GameScreenState extends State<GameScreen> {
         behavior: HitTestBehavior.opaque,
         onTap: currentTask.type == TaskType.tap ? handleTap : null,
         child: SafeArea(
-          child: Stack(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Row(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 18, 22, 12),
+            child: Column(
+              children: [
+                Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
                       tr ? 'Skor: $score' : 'Score: $score',
-                      style: const TextStyle(color: Colors.white70, fontSize: 22),
+                      style: const TextStyle(color: Colors.white70, fontSize: 26),
                     ),
                     Text(
                       '$timeLeft',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 36,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
-              ),
-
-              Positioned(
-                top: 82,
-                left: 18,
-                right: 18,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title.toUpperCase(),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 25),
-                    if (currentTask.type == TaskType.tap ||
-                        currentTask.type == TaskType.hold ||
-                        currentTask.type == TaskType.blueCircles)
-                      Text(
-                        currentTask.type == TaskType.hold
-                            ? '${(progress / 2).floor()} / ${currentTask.target}'
-                            : '$progress / ${currentTask.target}',
-                        style: const TextStyle(color: Colors.white70, fontSize: 28),
-                      ),
-                  ],
+                const SizedBox(height: 22),
+                Text(
+                  title.toUpperCase(),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
                 ),
-              ),
-
-              if (currentTask.type == TaskType.tap)
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 120),
-                    child: Container(
-                      width: 190,
-                      height: 190,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(color: Colors.greenAccent, width: 4),
-                      ),
-                      child: Text(
-                        tr ? 'DOKUN' : 'TAP',
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 34,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-              if (currentTask.type == TaskType.redSquare)
-                Positioned(
-                  left: MediaQuery.of(context).size.width * redX,
-                  top: MediaQuery.of(context).size.height * redY,
-                  child: GestureDetector(
-                    onTap: successTask,
-                    child: Container(
-                      width: 80,
-                      height: 80,
-                      color: Colors.red,
-                    ),
-                  ),
-                ),
-
-              if (currentTask.type == TaskType.hold)
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 220),
-                    child: GestureDetector(
-                      onTapDown: (_) {
-                        holdTimer?.cancel();
-                        setState(() => progress = 0);
-                        holdTimer = Timer.periodic(
-                          const Duration(milliseconds: 500),
-                          (_) {
-                            if (!mounted || gameOver) return;
-                            setState(() => progress++);
-                            if (progress >= currentTask.target * 2) {
-                              holdTimer?.cancel();
-                              successTask();
-                            }
-                          },
-                        );
-                      },
-                      onTapUp: (_) {
-                        holdTimer?.cancel();
-                        if (!gameOver && progress < currentTask.target * 2) {
-                          setState(() => progress = 0);
-                        }
-                      },
-                      onTapCancel: () {
-                        holdTimer?.cancel();
-                        if (!gameOver && progress < currentTask.target * 2) {
-                          setState(() => progress = 0);
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 50,
-                          vertical: 25,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              tr ? 'BASILI TUT' : 'HOLD',
-                              style: const TextStyle(
-                                color: Colors.black,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              '${(progress / 2).floor()} / ${currentTask.target}',
-                              style: const TextStyle(
-                                color: Colors.black87,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-              if (currentTask.type == TaskType.blueCircles)
-                ...blueCircles.toList().map(
-                  (circle) => Positioned(
-                    left: circle.dx,
-                    top: circle.dy,
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          blueCircles.remove(circle);
-                          progress++;
-
-                          final size = MediaQuery.of(context).size;
-                          blueCircles = blueCircles
-                              .map((_) => Offset(
-                                    40 + random.nextDouble() * (size.width - 100),
-                                    120 + random.nextDouble() * (size.height - 260),
-                                  ))
-                              .toList();
-                        });
-                        if (progress >= currentTask.target) successTask();
-                      },
-                      child: Container(
-                        width: 55,
-                        height: 55,
-                        decoration: const BoxDecoration(
-                          color: Colors.blue,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-              if (currentTask.type == TaskType.findNumber)
-                ...List.generate(numbers.length, (index) {
-                  final number = numbers[index];
-                  return Positioned(
-                    left: 54 + (index % 3) * 96,
-                    top: 235 + (index ~/ 3) * 82,
-                    child: GestureDetector(
-                      onTap: () {
-                        if (number == currentTask.target) {
-                          successTask();
-                        } else {
-                          finishGame();
-                        }
-                      },
-                      child: Container(
-                        width: 64,
-                        height: 64,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Text(
-                          '$number',
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-
-              if (currentTask.type == TaskType.dragBox)
-                Positioned(
-                  left: targetPosition.dx,
-                  top: targetPosition.dy,
-                  child: Container(
-                    width: 90,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.greenAccent, width: 4),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-
-              if (currentTask.type == TaskType.dragBox)
-                Positioned(
-                  left: boxPosition.dx,
-                  top: boxPosition.dy,
-                  child: GestureDetector(
-                    onPanUpdate: (details) {
-                      setState(() {
-                        boxPosition += details.delta;
-                      });
-
-                      final dx = boxPosition.dx - targetPosition.dx;
-                      final dy = boxPosition.dy - targetPosition.dy;
-                      final distance = sqrt(dx * dx + dy * dy);
-
-                      if (distance < 45 && !draggingDone) {
-                        draggingDone = true;
-                        successTask();
-                      }
-                    },
-                    child: Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: Colors.orange,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+                const SizedBox(height: 12),
+                if (currentTask.type == TaskType.tap ||
+                    currentTask.type == TaskType.hold ||
+                    currentTask.type == TaskType.blueCircles)
+                  Text(
+                    currentTask.type == TaskType.hold
+                        ? '${(progress / 2).floor()} / ${currentTask.target}'
+                        : '$progress / ${currentTask.target}',
+                    style: const TextStyle(color: Colors.white70, fontSize: 24),
+                  )
+                else
+                  const SizedBox(height: 29),
+                const Spacer(),
+                _gameArea(context, tr, title),
+                const Spacer(),
+              ],
+            ),
           ),
         ),
       ),
