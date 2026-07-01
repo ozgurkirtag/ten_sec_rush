@@ -653,8 +653,8 @@ class _GameScreenState extends State<GameScreen> {
                 if (progress >= currentTask.target) successTask();
               },
               child: Container(
-                width: 62,
-                height: 62,
+                width: 48,
+                height: 48,
                 decoration: const BoxDecoration(
                   color: Colors.blue,
                   shape: BoxShape.circle,
