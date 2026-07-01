@@ -642,26 +642,43 @@ class _GameScreenState extends State<GameScreen> {
         );
 
       case TaskType.blueCircles:
-        return Wrap(
-          spacing: 22,
-          runSpacing: 22,
-          alignment: WrapAlignment.center,
-          children: List.generate(currentTask.target, (index) {
-            return GestureDetector(
-              onTap: () {
-                setState(() => progress++);
-                if (progress >= currentTask.target) successTask();
-              },
-              child: Container(
-                width: 48,
-                height: 48,
-                decoration: const BoxDecoration(
-                  color: Colors.blue,
-                  shape: BoxShape.circle,
+        final r = Random(score + progress + DateTime.now().millisecondsSinceEpoch);
+        final positions = List.generate(currentTask.target, (_) {
+          return Offset(
+            25 + r.nextDouble() * 230,
+            25 + r.nextDouble() * 230,
+          );
+        });
+
+        return SizedBox(
+          width: 300,
+          height: 300,
+          child: Stack(
+            children: List.generate(currentTask.target, (index) {
+              return Positioned(
+                left: positions[index].dx,
+                top: positions[index].dy,
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      progress++;
+                    });
+                    if (progress >= currentTask.target) {
+                      successTask();
+                    }
+                  },
+                  child: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: const BoxDecoration(
+                      color: Colors.blue,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
                 ),
-              ),
-            );
-          }),
+              );
+            }),
+          ),
         );
 
       case TaskType.findNumber:
