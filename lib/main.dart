@@ -270,8 +270,8 @@ class _GameScreenState extends State<GameScreen> {
   List<Offset> blueCircles = [];
   List<int> numbers = [];
 
-  Offset boxPosition = const Offset(80, 420);
-  final Offset targetPosition = const Offset(250, 420);
+  Offset boxPosition = const Offset(70, 360);
+  final Offset targetPosition = const Offset(220, 360);
   bool draggingDone = false;
 
   InterstitialAd? _interstitialAd;
@@ -324,10 +324,10 @@ class _GameScreenState extends State<GameScreen> {
       progress = 0;
       gameOver = false;
       draggingDone = false;
-      boxPosition = const Offset(80, 420);
+      boxPosition = const Offset(70, 360);
 
-      redX = random.nextDouble() * 0.7 + 0.1;
-      redY = random.nextDouble() * 0.5 + 0.25;
+      redX = random.nextDouble() * 0.5 + 0.2;
+      redY = random.nextDouble() * 0.25 + 0.32;
 
       blueCircles = List.generate(
         5,
@@ -610,6 +610,31 @@ class _GameScreenState extends State<GameScreen> {
                   ],
                 ),
               ),
+
+              if (currentTask.type == TaskType.tap)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 120),
+                    child: Container(
+                      width: 190,
+                      height: 190,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(color: Colors.greenAccent, width: 4),
+                      ),
+                      child: Text(
+                        tr ? 'DOKUN' : 'TAP',
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontSize: 34,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
 
               if (currentTask.type == TaskType.redSquare)
                 Positioned(
