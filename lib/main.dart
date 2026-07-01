@@ -350,14 +350,19 @@ class _GameScreenState extends State<GameScreen> {
       });
     }
 
+    timer?.cancel();
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted || gameOver) return;
-      setState(() => timeLeft--);
+      setState(() {
+        if (timeLeft > 0) timeLeft--;
+      });
       if (timeLeft <= 0) finishGame();
     });
   }
 
   void successTask() {
+    timer?.cancel();
+    holdTimer?.cancel();
     numberShuffleTimer?.cancel();
     if (gameOver) return;
 
@@ -375,6 +380,7 @@ class _GameScreenState extends State<GameScreen> {
   void finishGame() async {
     timer?.cancel();
     holdTimer?.cancel();
+    numberShuffleTimer?.cancel();
 
     await saveBest();
 
